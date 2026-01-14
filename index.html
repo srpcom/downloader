@@ -43,6 +43,26 @@
         .form-group { margin-bottom: 1.2rem; }
         label { display: block; margin-bottom: 0.6rem; color: #d1d8e0; font-size: 0.85rem; font-weight: 500; }
         
+        /* Flex container untuk Label dan Tombol Clear */
+        .header-row {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;
+        }
+        .header-row label { margin-bottom: 0; }
+
+        /* Tombol Clear Kecil */
+        .btn-clear {
+            width: auto !important; padding: 4px 10px !important; font-size: 0.75rem !important;
+            background: rgba(255, 71, 87, 0.2) !important;
+            border: 1px solid rgba(255, 71, 87, 0.5) !important;
+            color: #ff4757 !important; margin: 0 !important;
+            border-radius: 6px !important; letter-spacing: 0.5px !important;
+            animation: none !important;
+        }
+        .btn-clear:hover {
+            background: rgba(255, 71, 87, 0.4) !important; color: white !important;
+            transform: none !important; box-shadow: none !important;
+        }
+
         textarea {
             width: 100%; padding: 12px 15px; background: var(--input-bg);
             border: 1px solid var(--glass-border); border-radius: 10px;
@@ -125,7 +145,10 @@
     <p class="subtitle">Bulk Folder & File Transfer</p>
     
     <div class="form-group">
-        <label for="folderUrls">Daftar Link Sumber (File atau Folder)</label>
+        <div class="header-row">
+            <label for="folderUrls">Daftar Link Sumber (File atau Folder)</label>
+            <button id="clearInputBtn" class="btn-clear">Clear</button>
+        </div>
         <textarea id="folderUrls" placeholder="https://drive.google.com/drive/folders/AAAA...&#10;https://drive.google.com/file/d/BBBB..."></textarea>
     </div>
 
@@ -167,12 +190,19 @@
     const stopBtn = document.getElementById('stopBtn');
     const bgToggle = document.getElementById('bgToggle');
     const folderUrlsInput = document.getElementById('folderUrls');
+    const clearInputBtn = document.getElementById('clearInputBtn');
     const progressWrapper = document.getElementById('progressWrapper');
     const progressBar = document.getElementById('progressBar');
     const logArea = document.getElementById('logArea');
     const globalStatus = document.getElementById('globalStatus');
 
     let isStopRequested = false;
+
+    // --- CLEAR BUTTON HANDLER ---
+    clearInputBtn.addEventListener('click', () => {
+        folderUrlsInput.value = '';
+        folderUrlsInput.focus();
+    });
 
     tsParticles.load("tsparticles", {
         fpsLimit: 60,
@@ -312,10 +342,9 @@
                     updateProgress(p.percent, `${actionText}: ${p.processed}/${p.total}`);
                     finalProcessed = p.processed; finalSizeStr = p.currentSize;
 
-                    // KUNCI: AMBIL URL FILE DARI PROCESSED LIST
                     if (res.processedList && res.processedList.length > 0) {
                         if (sourceType === 'file') {
-                            targetUrl = res.processedList[0].url; // Update URL dengan URL file asli
+                            targetUrl = res.processedList[0].url; 
                         }
                     }
 
