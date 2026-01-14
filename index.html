@@ -1,377 +1,422 @@
-// ==========================================
-// KONFIGURASI GLOBAL
-// ==========================================
-// ID Folder Tujuan Anda (Sudah diisi sesuai permintaan)
-var DEST_FOLDER_ID = "1MRs9gSs3O7h85HkMqO6wv6TJsxw6jyBO"; 
-var LOG_SHEET_ID = "1R5Lb6NIkFDDx2otW1AgjWniGZf2X7UjUKQ19ee6vqUc"; 
-var SCRIPT_PROP = PropertiesService.getScriptProperties();
-
-// ==========================================
-// API HANDLER (DO POST)
-// ==========================================
-function doPost(e) {
-  try {
-    var data = JSON.parse(e.postData.contents);
-    var action = data.action;
-
-    if (action === 'initialize') {
-      return handleInitialize(data.url, data.name);
-    } else if (action === 'process_batch') {
-      return handleBatch(data.jobId);
-    } else if (action === 'start_background_multi') {
-      return startBackgroundJob(data.urls);
-    } else if (action === 'stop_background') {
-      return stopBackgroundJob();
-    } else if (action === 'check_background_status') {
-      return checkBackgroundStatus();
-    } else {
-      return responseJSON({ status: 'error', message: "Action tidak dikenal" });
-    }
-
-  } catch (error) {
-    return responseJSON({ status: 'error', message: "Error: " + error.toString() });
-  }
-}
-
-// ==========================================
-// [1] BACKGROUND JOB SYSTEM
-// ==========================================
-function startBackgroundJob(urls) {
-  var status = SCRIPT_PROP.getProperty('BG_JOB_STATUS');
-  if (status === 'RUNNING') {
-    return responseJSON({ status: 'error', message: "Sedang ada proses background berjalan. Stop dulu atau tunggu selesai." });
-  }
-
-  var masterJob = {
-    urls: urls,
-    currentIndex: 0,
-    currentJobId: null,
-    totalProcessed: 0,
-    startTime: new Date().getTime(),
-    status: 'RUNNING'
-  };
-  saveMasterJob(masterJob);
-  SCRIPT_PROP.setProperty('BG_JOB_STATUS', 'RUNNING');
-
-  deleteTriggers();
-  ScriptApp.newTrigger('backgroundTriggerHandler').timeBased().everyMinutes(1).create();
-
-  return responseJSON({ status: 'success', message: "Background Process Dimulai. Anda boleh menutup tab ini." });
-}
-
-function stopBackgroundJob() {
-  deleteTriggers();
-  SCRIPT_PROP.setProperty('BG_JOB_STATUS', 'STOPPED');
-  return responseJSON({ status: 'success', message: "Background Process Dihentikan." });
-}
-
-function checkBackgroundStatus() {
-  var status = SCRIPT_PROP.getProperty('BG_JOB_STATUS') || 'IDLE';
-  var masterJob = loadMasterJob();
-  var details = masterJob ? "Link " + (masterJob.currentIndex + 1) + " dari " + masterJob.urls.length : "";
-  return responseJSON({ status: 'success', bgStatus: status, details: details });
-}
-
-function backgroundTriggerHandler() {
-  var masterJob = loadMasterJob();
-  if (!masterJob || SCRIPT_PROP.getProperty('BG_JOB_STATUS') !== 'RUNNING') {
-    deleteTriggers(); return;
-  }
-
-  var startTime = new Date().getTime();
-  var MAX_EXECUTION_TIME = 280 * 1000;
-
-  try {
-    while (masterJob.currentIndex < masterJob.urls.length) {
-      if (new Date().getTime() - startTime > MAX_EXECUTION_TIME) return;
-
-      var currentUrl = masterJob.urls[masterJob.currentIndex];
-
-      if (!masterJob.currentJobId) {
-        var initResult = handleInitialize(currentUrl, "");
-        var initData = JSON.parse(initResult.getContent());
-        
-        if (initData.status === 'success') {
-          masterJob.currentJobId = initData.jobId;
-          saveMasterJob(masterJob);
-        } else {
-          logToSheet(getLogSheet(), "SYSTEM", "Skip Link", "Error: " + initData.message, currentUrl, "-", "-");
-          masterJob.currentIndex++;
-          masterJob.currentJobId = null;
-          saveMasterJob(masterJob);
-          continue; 
-        }
-      }
-
-      var isFolderDone = false;
-      while (!isFolderDone) {
-         if (new Date().getTime() - startTime > MAX_EXECUTION_TIME) return;
-
-         var batchResult = handleBatch(masterJob.currentJobId);
-         var batchData = JSON.parse(batchResult.getContent());
-
-         if (batchData.status === 'success') {
-           if (batchData.action === 'complete') isFolderDone = true;
-         } else {
-           isFolderDone = true;
-         }
-      }
-
-      if (isFolderDone) {
-        masterJob.currentIndex++;
-        masterJob.currentJobId = null;
-        saveMasterJob(masterJob);
-      }
-    }
-    stopBackgroundJob();
-    logToSheet(getLogSheet(), "SYSTEM", "Background Job", "COMPLETED", "All Items", "-", "-");
-  } catch (e) { console.error("BG Error: " + e.message); }
-}
-
-// ==========================================
-// [2] FOREGROUND HANDLERS (INITIALIZE & BATCH)
-// ==========================================
-function handleInitialize(sourceUrl, customName) {
-  var lock = LockService.getScriptLock();
-  lock.waitLock(10000); 
-  try {
-    var sourceId = extractIdFromUrl(sourceUrl);
-    if (!sourceId) return responseJSON({ status: 'error', message: "URL Invalid" });
-
-    // 1. Deteksi apakah FILE atau FOLDER
-    var isFolder = false;
-    var sourceItem = null;
-    var sourceName = "";
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>G-Drive Multi Cloner</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tsparticles@2.11.0/tsparticles.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     
-    try {
-      var fileTest = DriveApp.getFileById(sourceId);
-      // Cek MimeType untuk membedakan shortcut folder vs file asli
-      if (fileTest.getMimeType() === MimeType.FOLDER) {
-        isFolder = true;
-        sourceItem = DriveApp.getFolderById(sourceId);
-      } else {
-        isFolder = false;
-        sourceItem = fileTest;
-      }
-      sourceName = sourceItem.getName();
-    } catch (e) {
-      try {
-        sourceItem = DriveApp.getFolderById(sourceId);
-        sourceName = sourceItem.getName();
-        isFolder = true;
-      } catch (e2) {
-        return responseJSON({ status: 'error', message: "Akses Ditolak / Link Salah / File Tidak Ditemukan" });
-      }
-    }
+    <style>
+        :root {
+            --primary: #00d2ff; --secondary: #ff00de;
+            --glass-bg: rgba(20, 20, 30, 0.6); --glass-border: rgba(255, 255, 255, 0.1);
+            --text-color: #ffffff; --input-bg: rgba(0, 0, 0, 0.3);
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: #0f0c29; background: linear-gradient(to right, #24243e, #302b63, #0f0c29);
+            display: flex; justify-content: center; align-items: center; min-height: 100vh;
+            margin: 0; padding: 20px; color: var(--text-color); overflow-x: hidden; position: relative;
+        }
+        #tsparticles { position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 0; }
+        
+        .container {
+            position: relative; z-index: 1; background: var(--glass-bg);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 2rem; border-radius: 20px; border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5); width: 100%; max-width: 550px;
+            animation: fadeIn 0.8s ease-out;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
-    // 2. Tentukan Folder Tujuan (Menggunakan ID yang sudah diset di atas)
-    var targetParent;
-    try {
-      if (DEST_FOLDER_ID && DEST_FOLDER_ID.length > 5) {
-        targetParent = DriveApp.getFolderById(DEST_FOLDER_ID);
-      } else {
-        throw new Error("ID Kosong");
-      }
-    } catch(err) {
-      // Fallback: Jika ID salah/tidak bisa diakses, buat folder baru
-      var it = DriveApp.getFoldersByName("Auto Backup Drive");
-      if (it.hasNext()) targetParent = it.next();
-      else targetParent = DriveApp.createFolder("Auto Backup Drive");
-    }
+        h1 {
+            font-size: 1.8rem; margin-bottom: 0.5rem; text-align: center;
+            background: linear-gradient(to right, #00d2ff, #ff00de, #f4b400); 
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            font-weight: 700; text-shadow: 0 0 20px rgba(0, 210, 255, 0.3);
+        }
+        p.subtitle { text-align: center; color: rgba(255, 255, 255, 0.8); font-size: 0.9rem; margin-bottom: 1.5rem; }
 
-    var finalTargetFolder;
-    var targetUrlForFrontend;
+        .form-group { margin-bottom: 1.2rem; }
+        label { display: block; margin-bottom: 0.6rem; color: #d1d8e0; font-size: 0.85rem; font-weight: 500; }
+        
+        textarea {
+            width: 100%; padding: 12px 15px; background: var(--input-bg);
+            border: 1px solid var(--glass-border); border-radius: 10px;
+            font-size: 0.9rem; color: white; box-sizing: border-box;
+            font-family: 'Poppins', sans-serif; resize: vertical; min-height: 120px;
+        }
+        textarea:focus { outline: none; border-color: var(--primary); background: rgba(255, 255, 255, 0.1); }
 
-    if (isFolder) {
-      // JIKA FOLDER: Buat Folder Baru sebagai Wadah di dalam DEST_FOLDER_ID
-      var destName = customName || "Copy of " + sourceName;
-      finalTargetFolder = targetParent.createFolder(destName);
-      
-      // Set Permission
-      try { finalTargetFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}
-      
-      targetUrlForFrontend = finalTargetFolder.getUrl();
-    } else {
-      // JIKA FILE: LANGSUNG KE DEST_FOLDER_ID (Tanpa membuat folder wadah)
-      finalTargetFolder = targetParent;
-      targetUrlForFrontend = targetParent.getUrl();
-    }
+        /* TOGGLE SWITCH STYLE */
+        .toggle-container {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 10px;
+        }
+        .toggle-label { font-size: 0.9rem; font-weight: 600; color: #00d2ff; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc; transition: .4s; border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px;
+            background-color: white; transition: .4s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: #2ed573; }
+        input:checked + .slider:before { transform: translateX(26px); }
 
-    var jobData = {
-      jobId: Utilities.getUuid(),
-      status: 'running',
-      totalFiles: 0,
-      processedFiles: 0,
-      totalSize: 0,
-      processedSize: 0,
-      queue: [],
-      rootTargetUrl: targetUrlForFrontend,
-      logSheetId: LOG_SHEET_ID
-    };
+        /* BUTTONS */
+        .btn-group { display: flex; gap: 10px; }
+        button {
+            width: 100%; border: none; padding: 14px; border-radius: 10px;
+            font-size: 1rem; font-weight: 600; cursor: pointer;
+            transition: transform 0.2s; text-transform: uppercase; letter-spacing: 1px;
+            color: white;
+        }
+        #submitBtn {
+            background: linear-gradient(45deg, #00d2ff, #3a7bd5, #ff00de);
+            background-size: 200% 200%; animation: gradientAnim 3s ease infinite;
+        }
+        #stopBtn {
+            background: #ff4757; display: none; /* Hidden by default */
+        }
+        @keyframes gradientAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        button:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
+        button:disabled { background: #444; color: #aaa; cursor: not-allowed; animation: none; transform: none; box-shadow: none;}
 
-    if (isFolder) {
-      scanFolderRecursive(sourceItem, finalTargetFolder.getId(), jobData);
-    } else {
-      // Logic Single File
-      var newFileName = customName || sourceItem.getName();
-      jobData.queue.push({ 
-        type: 'file', 
-        id: sourceItem.getId(), 
-        name: newFileName, 
-        size: sourceItem.getSize(), 
-        targetFolderId: finalTargetFolder.getId(), 
-        url: sourceItem.getUrl() 
-      });
-      jobData.totalFiles = 1; jobData.totalSize = sourceItem.getSize();
-    }
-    saveJobState(jobData);
+        /* Progress & Log */
+        .progress-wrapper { margin-top: 20px; display: none; }
+        .global-status { 
+            text-align: center; margin-bottom: 10px; font-weight: 600; color: #f4b400; 
+            border: 1px solid rgba(244, 180, 0, 0.3); padding: 5px; border-radius: 5px; background: rgba(0,0,0,0.2);
+        }
+        .progress-container { width: 100%; height: 8px; background-color: rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden; margin-top: 5px;}
+        .progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #f4b400, #ff00de, #00d2ff); border-radius: 10px; transition: width 0.4s ease; }
+        .log-area {
+            margin-top: 15px; max-height: 150px; overflow-y: auto; 
+            background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px;
+            font-size: 0.75rem; font-family: monospace; display: none;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .log-item { margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .log-success { color: #00d2ff; } .log-error { color: #ff4757; } .log-skip { color: #ffa502; } .log-info { color: #ddd; }
 
-    return responseJSON({ 
-      status: 'success', 
-      action: 'initialized', 
-      jobId: jobData.jobId, 
-      totalFiles: jobData.totalFiles, 
-      totalSize: formatBytes(jobData.totalSize), 
-      sourceName: sourceName,
-      targetUrl: targetUrlForFrontend
+        /* Custom Popup Styles */
+        .result-btn-container {
+            display: flex; flex-direction: column; gap: 8px; margin-top: 15px; max-height: 150px; overflow-y: auto;
+        }
+        .result-link-btn {
+            display: block; padding: 10px; background: rgba(0, 210, 255, 0.15); 
+            border: 1px solid rgba(0, 210, 255, 0.5); color: #00d2ff; text-decoration: none; 
+            border-radius: 6px; font-size: 0.9em; transition: 0.2s; text-align: center;
+        }
+        .result-link-btn:hover { background: rgba(0, 210, 255, 0.3); color: white; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<div id="tsparticles"></div>
+
+<div class="container">
+    <h1>G-Drive Multi Cloner</h1>
+    <p class="subtitle">Bulk Folder & File Transfer</p>
+    
+    <div class="form-group">
+        <label for="folderUrls">Daftar Link Sumber (File atau Folder)</label>
+        <textarea id="folderUrls" placeholder="https://drive.google.com/drive/folders/AAAA...&#10;https://drive.google.com/file/d/BBBB..."></textarea>
+    </div>
+
+    <!-- Toggle Background Mode -->
+    <div class="toggle-container">
+        <span class="toggle-label">Run in Background (Server-Side)</span>
+        <label class="switch">
+            <input type="checkbox" id="bgToggle">
+            <span class="slider"></span>
+        </label>
+    </div>
+    <div style="font-size: 0.75rem; color: #aaa; margin-top: -10px; margin-bottom: 15px; text-align: right;">
+        *Jika ON: Proses berjalan meski tab ditutup.
+    </div>
+
+    <div class="btn-group">
+        <button id="submitBtn">Mulai Proses</button>
+        <button id="stopBtn">STOP 🛑</button>
+    </div>
+
+    <div class="progress-wrapper" id="progressWrapper">
+        <div class="global-status" id="globalStatus">Menunggu...</div>
+        
+        <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#b8c6db;">
+            <span id="progressText">Progress...</span>
+            <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="log-area" id="logArea"></div>
+    </div>
+</div>
+
+<script>
+    // --- KONFIGURASI ---
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwzMhTT8zwLTV26UtM0T2nd8tsp9U8xjoFNGHp1h-xJ30ZZwjVORtEBiqXe8laV7MhDcg/exec"; 
+    const CONCURRENCY_LIMIT = 3; 
+
+    // --- DOM ELEMENTS ---
+    const submitBtn = document.getElementById('submitBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const bgToggle = document.getElementById('bgToggle');
+    const folderUrlsInput = document.getElementById('folderUrls');
+    const progressWrapper = document.getElementById('progressWrapper');
+    const progressBar = document.getElementById('progressBar');
+    const logArea = document.getElementById('logArea');
+    const globalStatus = document.getElementById('globalStatus');
+
+    // --- STATE VARIABLES ---
+    let isStopRequested = false;
+
+    // --- PARTICLES INIT ---
+    tsParticles.load("tsparticles", {
+        fpsLimit: 60,
+        particles: {
+            number: { value: 20, density: { enable: true, area: 800 } },
+            shape: { type: ["char", "circle"], character: [ { value: ["📂", "💾", "🚀", "✨", "📄"], font: "Verdana", weight: "400" } ] },
+            color: { value: ["#4285F4", "#DB4437", "#F4B400", "#0F9D58", "#ffffff"] },
+            opacity: { value: 0.4, random: true }, size: { value: { min: 10, max: 20 }, random: true },
+            move: { enable: true, speed: 1, direction: "none", random: true, outModes: { default: "out" } }
+        },
+        emitters: {
+            rate: { delay: 3, quantity: 1 }, position: { x: 50, y: 50 },
+            particles: {
+                shape: { type: "char", character: { value: ["✉️", "📦"], font: "Verdana" } },
+                size: { value: { min: 60, max: 90 } }, opacity: { value: 1 },
+                move: { enable: true, speed: 1, outModes: { default: "destroy" } },
+                links: { enable: false }
+            }
+        }
     });
 
-  } finally { lock.releaseLock(); }
-}
+    // --- HANDLERS ---
+    stopBtn.addEventListener('click', async () => {
+        isStopRequested = true;
+        stopBtn.disabled = true;
+        stopBtn.textContent = "Stopping...";
+        if (bgToggle.checked) {
+            addLog("Mengirim sinyal stop ke server...", "info");
+            try { const res = await sendRequest({ action: 'stop_background' }); addLog(res.message, "success"); } catch (e) { addLog("Gagal stop server: " + e.message, "error"); }
+        } else {
+            addLog("Menghentikan proses browser...", "info");
+        }
+    });
 
-function scanFolderRecursive(folder, targetFolderId, jobData) {
-  var files = folder.getFiles();
-  while (files.hasNext()) {
-    var file = files.next();
-    jobData.queue.push({ type: 'file', id: file.getId(), name: file.getName(), size: file.getSize(), targetFolderId: targetFolderId, url: file.getUrl() });
-    jobData.totalFiles++; jobData.totalSize += file.getSize();
-  }
-  var subFolders = folder.getFolders();
-  while (subFolders.hasNext()) {
-    var sub = subFolders.next();
-    var targetSub = DriveApp.getFolderById(targetFolderId).createFolder(sub.getName());
-    scanFolderRecursive(sub, targetSub.getId(), jobData);
-  }
-}
+    submitBtn.addEventListener('click', async () => {
+        const rawText = folderUrlsInput.value;
+        const urls = rawText.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+        if (urls.length === 0) { Swal.fire({ icon: 'warning', title: 'Kosong', text: 'Masukkan link file atau folder!' }); return; }
 
-function handleBatch(jobId) {
-  var BATCH_SIZE = 10; 
-  var batchItems = [];
-  var currentJobState = null;
-  var lock = LockService.getScriptLock();
-  lock.waitLock(10000); 
+        isStopRequested = false;
+        setUIState('running');
+        clearLog();
 
-  try {
-    var jobData = loadJobState(jobId);
-    if (!jobData) return responseJSON({ status: 'error', message: "Job ID tidak ditemukan" });
+        if (bgToggle.checked) {
+            try {
+                addLog("Mengirim data ke server...", "info");
+                const res = await sendRequest({ action: 'start_background_multi', urls: urls });
+                if (res.status === 'success') {
+                    addLog("✅ " + res.message, "success");
+                    globalStatus.textContent = "BERJALAN DI SERVER";
+                    launchConfetti();
+                    Swal.fire({ icon: 'success', title: 'Started!', text: 'Proses berjalan di server. Anda bisa menutup tab ini.', confirmButtonText: 'Oke' });
+                } else {
+                    addLog("❌ Gagal: " + res.message, "error"); setUIState('stopped');
+                }
+            } catch (e) { addLog("❌ Error: " + e.message, "error"); setUIState('stopped'); }
+        } else {
+            await runForegroundQueue(urls);
+        }
+    });
 
-    if (jobData.queue.length === 0) {
-      deleteJobState(jobId); 
-      return responseJSON({ 
-        status: 'success', 
-        action: 'complete', 
-        progress: { processed: jobData.totalFiles, total: jobData.totalFiles, percent: 100 },
-        details: { folderUrl: jobData.rootTargetUrl } 
-      });
+    // --- FOREGROUND LOGIC ---
+    async function runForegroundQueue(urls) {
+        let successCount = 0;
+        let failCount = 0;
+        let grandTotalFiles = 0;
+        let grandTotalBytes = 0;
+        let resultLinks = [];
+
+        for (let i = 0; i < urls.length; i++) {
+            if (isStopRequested) break;
+            const currentUrl = urls[i];
+            globalStatus.textContent = `Memproses Link ${i + 1} dari ${urls.length}`;
+            updateProgress(0, "Inisialisasi...");
+
+            try {
+                addLog(`▶ [${i+1}/${urls.length}] Connecting: ${shortUrl(currentUrl)}`, 'info');
+                
+                const result = await processSingleFolder(currentUrl);
+                
+                successCount++;
+                const itemType = result.type === 'file' ? 'File' : 'Folder';
+                addLog(`✅ Selesai: ${itemType} "${result.name}" (${result.files} items).`, 'success');
+                
+                grandTotalFiles += result.files;
+                grandTotalBytes += parseBytesToNum(result.sizeStr);
+                
+                if (result.url) {
+                    // Label tombol hasil disesuaikan dengan tipe
+                    const icon = result.type === 'file' ? '📄' : '📂';
+                    resultLinks.push({ 
+                        name: `${icon} ${result.name}`, 
+                        url: result.url 
+                    });
+                }
+            } catch (error) {
+                failCount++;
+                addLog(`❌ Gagal: ${error.message}`, 'error');
+            }
+        }
+
+        setUIState('stopped');
+        
+        if (isStopRequested) {
+            addLog("⛔ Proses dihentikan.", "error"); globalStatus.textContent = "DIHENTIKAN";
+        } else {
+            globalStatus.textContent = "SELESAI";
+            launchConfetti();
+            
+            let linksHtml = "";
+            if (resultLinks.length > 0) {
+                linksHtml += `<div class="result-btn-container">`;
+                resultLinks.forEach(link => {
+                    linksHtml += `<a href="${link.url}" target="_blank" class="result-link-btn">Buka: ${link.name}</a>`;
+                });
+                linksHtml += `</div>`;
+            } else if (successCount > 0) {
+                 linksHtml += `<p style="color:#aaa; font-size:0.8em; margin-top:10px;">(Link hasil tidak tersedia)</p>`;
+            }
+
+            Swal.fire({
+                icon: 'success',
+                title: '🎉 Selesai Semua! 🎉',
+                html: `
+                    <div style="text-align:left; color:#ddd;">
+                        <p>Total Item Disalin: <b>${grandTotalFiles}</b></p>
+                        <p>Total Ukuran: <b>${formatBytes(grandTotalBytes)}</b></p>
+                        <hr style="border-color:rgba(255,255,255,0.1); margin:10px 0;">
+                        <p style="font-size:0.9em">Berhasil: ${successCount} | Gagal: ${failCount}</p>
+                        ${linksHtml}
+                    </div>
+                `,
+                background: '#111116', color: '#fff', confirmButtonText: 'Mantap!', confirmButtonColor: '#ff00de'
+            });
+        }
     }
 
-    var count = 0;
-    while (count < BATCH_SIZE && jobData.queue.length > 0) {
-      batchItems.push(jobData.queue.shift());
-      jobData.processedFiles++; jobData.processedSize += batchItems[batchItems.length-1].size;
-      count++;
+    async function processSingleFolder(url) {
+        if (isStopRequested) return { files: 0, sizeStr: "0 B", url: null, type: 'unknown' };
+        
+        const initRes = await sendRequest({ action: 'initialize', url: url, name: "" });
+        if (initRes.status !== 'success') throw new Error(initRes.message);
+
+        const jobId = initRes.jobId;
+        const total = initRes.totalFiles;
+        const sourceName = initRes.sourceName || "Item";
+        const targetUrl = initRes.targetUrl;
+        const sourceType = initRes.type || 'folder'; // 'file' or 'folder'
+
+        // Update Text Status agar Informatif
+        const actionText = sourceType === 'file' ? 'Menyalin File' : 'Menyalin Folder';
+        document.getElementById('progressText').textContent = `${actionText}: ${sourceName}`;
+
+        if (total === 0) return { files: 0, sizeStr: "0 B", url: targetUrl, name: sourceName, type: sourceType };
+
+        let finalProcessed = 0;
+        let finalSizeStr = "0 B";
+        let isFinished = false;
+        let workers = [];
+        
+        const workerTask = async () => {
+            while (!isFinished && !isStopRequested) {
+                try {
+                    const res = await sendRequest({ action: 'process_batch', jobId: jobId });
+                    if (res.status !== 'success') throw new Error(res.message);
+                    
+                    const p = res.progress;
+                    updateProgress(p.percent, `${actionText}: ${p.processed}/${p.total}`);
+                    finalProcessed = p.processed;
+                    finalSizeStr = p.currentSize;
+
+                    if (res.action === 'complete') isFinished = true;
+                } catch (e) {
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            }
+        };
+
+        for (let k = 0; k < CONCURRENCY_LIMIT; k++) workers.push(workerTask());
+        await Promise.all(workers);
+
+        return { 
+            files: finalProcessed, 
+            sizeStr: finalSizeStr, 
+            url: targetUrl, 
+            name: sourceName,
+            type: sourceType
+        };
     }
-    saveJobState(jobData);
-    currentJobState = jobData; 
-  } finally { lock.releaseLock(); }
 
-  var logSheet = getLogSheet(); 
-  var logBuffer = []; 
-  var time = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
-
-  for (var i = 0; i < batchItems.length; i++) {
-    var item = batchItems[i];
-    try {
-      if (item.type === 'file') {
-        var file = DriveApp.getFileById(item.id);
-        var targetFolder = DriveApp.getFolderById(item.targetFolderId);
-        var newFile = file.makeCopy(item.name, targetFolder);
-        logBuffer.push([time, "File", item.name, "Success", item.url, newFile.getUrl(), formatBytes(item.size)]);
-      }
-    } catch (e) {
-      logBuffer.push([time, "File", item.name, "Error: " + e.message, item.url, "-", "-"]);
+    // --- UTILS ---
+    function launchConfetti() {
+        var duration = 3000; var end = Date.now() + duration;
+        var interval = setInterval(function() {
+            if (Date.now() > end) return clearInterval(interval);
+            confetti({ particleCount: 50, spread: 360, startVelocity: 30, origin: { x: Math.random(), y: Math.random() - 0.2 } });
+        }, 250);
     }
-  }
+    function parseBytesToNum(sizeStr) {
+        if (!sizeStr) return 0;
+        const units = { 'Bytes': 1, 'KB': 1024, 'MB': 1024**2, 'GB': 1024**3, 'TB': 1024**4 };
+        const parts = sizeStr.split(' ');
+        return parseFloat(parts[0]) * (units[parts[1]] || 1);
+    }
+    function formatBytes(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const i = Math.floor(Math.log(bytes) / Math.log(1024));
+        return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + ['Bytes', 'KB', 'MB', 'GB', 'TB'][i];
+    }
+    async function sendRequest(payload) {
+        const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
+        return await response.json();
+    }
+    function setUIState(state) {
+        if (state === 'running') {
+            submitBtn.style.display = 'none'; stopBtn.style.display = 'block'; stopBtn.disabled = false; stopBtn.textContent = "STOP 🛑";
+            folderUrlsInput.disabled = true; bgToggle.disabled = true; progressWrapper.style.display = 'block'; logArea.style.display = 'block';
+        } else {
+            submitBtn.style.display = 'block'; stopBtn.style.display = 'none'; folderUrlsInput.disabled = false; bgToggle.disabled = false;
+        }
+    }
+    function updateProgress(percent, text) {
+        progressBar.style.width = percent + "%";
+        document.getElementById('progressPercent').textContent = percent + "%";
+        document.getElementById('progressText').textContent = text;
+    }
+    function addLog(msg, type) {
+        const div = document.createElement('div'); div.className = 'log-item log-' + type; div.textContent = msg;
+        logArea.appendChild(div); logArea.scrollTop = logArea.scrollHeight;
+    }
+    function clearLog() { logArea.innerHTML = ''; }
+    function shortUrl(url) { return url.length > 40 ? url.substring(0, 35) + "..." : url; }
+</script>
 
-  if (logBuffer.length > 0) {
-    try {
-      var lastRow = logSheet.getLastRow();
-      logSheet.getRange(lastRow + 1, 1, logBuffer.length, logBuffer[0].length).setValues(logBuffer);
-    } catch(e) {}
-  }
-
-  return responseJSON({
-    status: 'success', action: 'continue', jobId: jobId,
-    progress: { processed: currentJobState.processedFiles, total: currentJobState.totalFiles, percent: Math.round((currentJobState.processedFiles / currentJobState.totalFiles) * 100), currentSize: formatBytes(currentJobState.processedSize), totalSize: formatBytes(currentJobState.totalSize) }
-  });
-}
-
-// ==========================================
-// UTILS & STORAGE
-// ==========================================
-function saveMasterJob(data) {
-  var fileName = "bg_master_job.json";
-  var files = DriveApp.getFilesByName(fileName);
-  if (files.hasNext()) files.next().setContent(JSON.stringify(data));
-  else DriveApp.createFile(fileName, JSON.stringify(data), MimeType.PLAIN_TEXT);
-}
-function loadMasterJob() {
-  var fileName = "bg_master_job.json";
-  var files = DriveApp.getFilesByName(fileName);
-  if (files.hasNext()) return JSON.parse(files.next().getBlob().getDataAsString());
-  return null;
-}
-function deleteTriggers() {
-  var triggers = ScriptApp.getProjectTriggers();
-  for (var i = 0; i < triggers.length; i++) { ScriptApp.deleteTrigger(triggers[i]); }
-}
-function extractIdFromUrl(url) {
-  var match = url.match(/(?:\/folders\/|\/d\/|id=)([-\w]{25,})/);
-  if (match && match[1]) return match[1];
-  var simpleMatch = url.match(/[-\w]{25,}/);
-  return simpleMatch ? simpleMatch[0] : null;
-}
-function saveJobState(data) {
-  var fileName = "temp_job_" + data.jobId + ".json";
-  var files = DriveApp.getFilesByName(fileName);
-  if (files.hasNext()) files.next().setContent(JSON.stringify(data));
-  else DriveApp.createFile(fileName, JSON.stringify(data), MimeType.PLAIN_TEXT);
-}
-function loadJobState(jobId) {
-  var fileName = "temp_job_" + jobId + ".json";
-  var files = DriveApp.getFilesByName(fileName);
-  if (files.hasNext()) return JSON.parse(files.next().getBlob().getDataAsString());
-  return null;
-}
-function deleteJobState(jobId) {
-  var fileName = "temp_job_" + jobId + ".json";
-  var files = DriveApp.getFilesByName(fileName);
-  if (files.hasNext()) files.next().setTrashed(true);
-}
-function getLogSheet() {
-  var ss; try { ss = SpreadsheetApp.openById(LOG_SHEET_ID); } catch(e) { ss = SpreadsheetApp.create("Log Copy"); }
-  return ss.getSheets()[0];
-}
-function logToSheet(sheet, type, name, status, oldUrl, newUrl, size) {
-  var time = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
-  try { sheet.appendRow([time, type, name, status, oldUrl, newUrl, size]); } catch(e) {}
-}
-function formatBytes(bytes) {
-  if (bytes === 0) return '0 Bytes';
-  var k = 1024; var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  var i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-function responseJSON(data) {
-  return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
-}
+</body>
+</html>
