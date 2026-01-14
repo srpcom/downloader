@@ -43,13 +43,11 @@
         .form-group { margin-bottom: 1.2rem; }
         label { display: block; margin-bottom: 0.6rem; color: #d1d8e0; font-size: 0.85rem; font-weight: 500; }
         
-        /* Flex container untuk Label dan Tombol Clear */
         .header-row {
             display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;
         }
         .header-row label { margin-bottom: 0; }
 
-        /* Tombol Clear Kecil */
         .btn-clear {
             width: auto !important; padding: 4px 10px !important; font-size: 0.75rem !important;
             background: rgba(255, 71, 87, 0.2) !important;
@@ -107,9 +105,21 @@
 
         .progress-wrapper { margin-top: 20px; display: none; }
         .global-status { 
-            text-align: center; margin-bottom: 10px; font-weight: 600; color: #f4b400; 
+            text-align: center; margin-bottom: 5px; font-weight: 600; color: #f4b400; 
             border: 1px solid rgba(244, 180, 0, 0.3); padding: 5px; border-radius: 5px; background: rgba(0,0,0,0.2);
         }
+        /* TIMER STYLE */
+        .timer-display {
+            text-align: center;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.3rem;
+            color: #fff;
+            margin-bottom: 10px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+            letter-spacing: 2px;
+        }
+
         .progress-container { width: 100%; height: 8px; background-color: rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden; margin-top: 5px;}
         .progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #f4b400, #ff00de, #00d2ff); border-radius: 10px; transition: width 0.4s ease; }
         .log-area {
@@ -171,6 +181,9 @@
     <div class="progress-wrapper" id="progressWrapper">
         <div class="global-status" id="globalStatus">Menunggu...</div>
         
+        <!-- Timer Display -->
+        <div class="timer-display" id="timerDisplay">00:00:00</div>
+
         <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#b8c6db;">
             <span id="progressText">Progress...</span>
             <span id="progressPercent">0%</span>
@@ -195,8 +208,10 @@
     const progressBar = document.getElementById('progressBar');
     const logArea = document.getElementById('logArea');
     const globalStatus = document.getElementById('globalStatus');
+    const timerDisplay = document.getElementById('timerDisplay');
 
     let isStopRequested = false;
+    let timerInterval;
 
     // --- CLEAR BUTTON HANDLER ---
     clearInputBtn.addEventListener('click', () => {
@@ -230,6 +245,7 @@
             addLog("Mengirim sinyal stop ke server...", "info");
             try { const res = await sendRequest({ action: 'stop_background' }); addLog(res.message, "success"); } catch (e) { addLog("Gagal stop: " + e.message, "error"); }
         } else addLog("Menghentikan proses browser...", "info");
+        stopTimer();
     });
 
     submitBtn.addEventListener('click', async () => {
@@ -238,6 +254,7 @@
         if (urls.length === 0) { Swal.fire({ icon: 'warning', title: 'Kosong', text: 'Masukkan link file/folder!' }); return; }
 
         isStopRequested = false; setUIState('running'); clearLog();
+        startTimer(); // Mulai Timer
 
         if (bgToggle.checked) {
             try {
@@ -246,8 +263,8 @@
                 if (res.status === 'success') {
                     addLog("✅ " + res.message, "success"); globalStatus.textContent = "BERJALAN DI SERVER"; launchConfetti();
                     Swal.fire({ icon: 'success', title: 'Started!', text: 'Proses berjalan di server.', confirmButtonText: 'Oke' });
-                } else { addLog("❌ Gagal: " + res.message, "error"); setUIState('stopped'); }
-            } catch (e) { addLog("❌ Error: " + e.message, "error"); setUIState('stopped'); }
+                } else { addLog("❌ Gagal: " + res.message, "error"); setUIState('stopped'); stopTimer(); }
+            } catch (e) { addLog("❌ Error: " + e.message, "error"); setUIState('stopped'); stopTimer(); }
         } else {
             await runForegroundQueue(urls);
         }
@@ -282,6 +299,7 @@
         }
 
         setUIState('stopped');
+        stopTimer(); // Hentikan Timer saat selesai
         
         if (isStopRequested) {
             addLog("⛔ Proses dihentikan.", "error"); globalStatus.textContent = "DIHENTIKAN";
@@ -302,6 +320,7 @@
                 icon: 'success', title: '🎉 Selesai Semua! 🎉',
                 html: `
                     <div style="text-align:left; color:#ddd;">
+                        <p>Waktu: <b>${timerDisplay.textContent}</b></p>
                         <p>Total Item Disalin: <b>${grandTotalFiles}</b></p>
                         <p>Total Ukuran: <b>${formatBytes(grandTotalBytes)}</b></p>
                         <hr style="border-color:rgba(255,255,255,0.1); margin:10px 0;">
@@ -399,6 +418,29 @@
     }
     function clearLog() { logArea.innerHTML = ''; }
     function shortUrl(url) { return url.length > 40 ? url.substring(0, 35) + "..." : url; }
+
+    // --- TIMER FUNCTIONS ---
+    function startTimer() {
+        const startTime = Date.now();
+        timerDisplay.textContent = "00:00:00";
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            const elapsedTime = Date.now() - startTime;
+            const hours = Math.floor(elapsedTime / 3600000);
+            const minutes = Math.floor((elapsedTime % 3600000) / 60000);
+            const seconds = Math.floor((elapsedTime % 60000) / 1000);
+            timerDisplay.textContent = 
+                `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+        }, 1000);
+    }
+
+    function stopTimer() {
+        clearInterval(timerInterval);
+    }
+
+    function pad(num) {
+        return num.toString().padStart(2, '0');
+    }
 </script>
 
 </body>
