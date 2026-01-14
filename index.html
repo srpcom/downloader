@@ -51,7 +51,6 @@
         }
         textarea:focus { outline: none; border-color: var(--primary); background: rgba(255, 255, 255, 0.1); }
 
-        /* TOGGLE SWITCH STYLE */
         .toggle-container {
             display: flex; align-items: center; justify-content: space-between;
             margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 10px;
@@ -70,7 +69,6 @@
         input:checked + .slider { background-color: #2ed573; }
         input:checked + .slider:before { transform: translateX(26px); }
 
-        /* BUTTONS */
         .btn-group { display: flex; gap: 10px; }
         button {
             width: 100%; border: none; padding: 14px; border-radius: 10px;
@@ -82,14 +80,11 @@
             background: linear-gradient(45deg, #00d2ff, #3a7bd5, #ff00de);
             background-size: 200% 200%; animation: gradientAnim 3s ease infinite;
         }
-        #stopBtn {
-            background: #ff4757; display: none; /* Hidden by default */
-        }
+        #stopBtn { background: #ff4757; display: none; }
         @keyframes gradientAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         button:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
         button:disabled { background: #444; color: #aaa; cursor: not-allowed; animation: none; transform: none; box-shadow: none;}
 
-        /* Progress & Log */
         .progress-wrapper { margin-top: 20px; display: none; }
         .global-status { 
             text-align: center; margin-bottom: 10px; font-weight: 600; color: #f4b400; 
@@ -106,7 +101,6 @@
         .log-item { margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .log-success { color: #00d2ff; } .log-error { color: #ff4757; } .log-skip { color: #ffa502; } .log-info { color: #ddd; }
 
-        /* Custom Popup Styles */
         .result-btn-container {
             display: flex; flex-direction: column; gap: 8px; margin-top: 15px; max-height: 150px; overflow-y: auto;
         }
@@ -135,7 +129,6 @@
         <textarea id="folderUrls" placeholder="https://drive.google.com/drive/folders/AAAA...&#10;https://drive.google.com/file/d/BBBB..."></textarea>
     </div>
 
-    <!-- Toggle Background Mode -->
     <div class="toggle-container">
         <span class="toggle-label">Run in Background (Server-Side)</span>
         <label class="switch">
@@ -167,11 +160,9 @@
 </div>
 
 <script>
-    // --- KONFIGURASI ---
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwzMhTT8zwLTV26UtM0T2nd8tsp9U8xjoFNGHp1h-xJ30ZZwjVORtEBiqXe8laV7MhDcg/exec"; 
     const CONCURRENCY_LIMIT = 3; 
 
-    // --- DOM ELEMENTS ---
     const submitBtn = document.getElementById('submitBtn');
     const stopBtn = document.getElementById('stopBtn');
     const bgToggle = document.getElementById('bgToggle');
@@ -181,10 +172,8 @@
     const logArea = document.getElementById('logArea');
     const globalStatus = document.getElementById('globalStatus');
 
-    // --- STATE VARIABLES ---
     let isStopRequested = false;
 
-    // --- PARTICLES INIT ---
     tsParticles.load("tsparticles", {
         fpsLimit: 60,
         particles: {
@@ -205,53 +194,37 @@
         }
     });
 
-    // --- HANDLERS ---
     stopBtn.addEventListener('click', async () => {
-        isStopRequested = true;
-        stopBtn.disabled = true;
-        stopBtn.textContent = "Stopping...";
+        isStopRequested = true; stopBtn.disabled = true; stopBtn.textContent = "Stopping...";
         if (bgToggle.checked) {
             addLog("Mengirim sinyal stop ke server...", "info");
-            try { const res = await sendRequest({ action: 'stop_background' }); addLog(res.message, "success"); } catch (e) { addLog("Gagal stop server: " + e.message, "error"); }
-        } else {
-            addLog("Menghentikan proses browser...", "info");
-        }
+            try { const res = await sendRequest({ action: 'stop_background' }); addLog(res.message, "success"); } catch (e) { addLog("Gagal stop: " + e.message, "error"); }
+        } else addLog("Menghentikan proses browser...", "info");
     });
 
     submitBtn.addEventListener('click', async () => {
         const rawText = folderUrlsInput.value;
         const urls = rawText.split('\n').map(u => u.trim()).filter(u => u.length > 0);
-        if (urls.length === 0) { Swal.fire({ icon: 'warning', title: 'Kosong', text: 'Masukkan link file atau folder!' }); return; }
+        if (urls.length === 0) { Swal.fire({ icon: 'warning', title: 'Kosong', text: 'Masukkan link file/folder!' }); return; }
 
-        isStopRequested = false;
-        setUIState('running');
-        clearLog();
+        isStopRequested = false; setUIState('running'); clearLog();
 
         if (bgToggle.checked) {
             try {
                 addLog("Mengirim data ke server...", "info");
                 const res = await sendRequest({ action: 'start_background_multi', urls: urls });
                 if (res.status === 'success') {
-                    addLog("✅ " + res.message, "success");
-                    globalStatus.textContent = "BERJALAN DI SERVER";
-                    launchConfetti();
-                    Swal.fire({ icon: 'success', title: 'Started!', text: 'Proses berjalan di server. Anda bisa menutup tab ini.', confirmButtonText: 'Oke' });
-                } else {
-                    addLog("❌ Gagal: " + res.message, "error"); setUIState('stopped');
-                }
+                    addLog("✅ " + res.message, "success"); globalStatus.textContent = "BERJALAN DI SERVER"; launchConfetti();
+                    Swal.fire({ icon: 'success', title: 'Started!', text: 'Proses berjalan di server.', confirmButtonText: 'Oke' });
+                } else { addLog("❌ Gagal: " + res.message, "error"); setUIState('stopped'); }
             } catch (e) { addLog("❌ Error: " + e.message, "error"); setUIState('stopped'); }
         } else {
             await runForegroundQueue(urls);
         }
     });
 
-    // --- FOREGROUND LOGIC ---
     async function runForegroundQueue(urls) {
-        let successCount = 0;
-        let failCount = 0;
-        let grandTotalFiles = 0;
-        let grandTotalBytes = 0;
-        let resultLinks = [];
+        let successCount = 0; let failCount = 0; let grandTotalFiles = 0; let grandTotalBytes = 0; let resultLinks = [];
 
         for (let i = 0; i < urls.length; i++) {
             if (isStopRequested) break;
@@ -263,25 +236,18 @@
                 addLog(`▶ [${i+1}/${urls.length}] Connecting: ${shortUrl(currentUrl)}`, 'info');
                 
                 const result = await processSingleFolder(currentUrl);
-                
                 successCount++;
                 const itemType = result.type === 'file' ? 'File' : 'Folder';
                 addLog(`✅ Selesai: ${itemType} "${result.name}" (${result.files} items).`, 'success');
                 
-                grandTotalFiles += result.files;
-                grandTotalBytes += parseBytesToNum(result.sizeStr);
+                grandTotalFiles += result.files; grandTotalBytes += parseBytesToNum(result.sizeStr);
                 
                 if (result.url) {
-                    // Label tombol hasil disesuaikan dengan tipe
                     const icon = result.type === 'file' ? '📄' : '📂';
-                    resultLinks.push({ 
-                        name: `${icon} ${result.name}`, 
-                        url: result.url 
-                    });
+                    resultLinks.push({ name: `${icon} ${result.name}`, url: result.url });
                 }
             } catch (error) {
-                failCount++;
-                addLog(`❌ Gagal: ${error.message}`, 'error');
+                failCount++; addLog(`❌ Gagal: ${error.message}`, 'error');
             }
         }
 
@@ -290,9 +256,7 @@
         if (isStopRequested) {
             addLog("⛔ Proses dihentikan.", "error"); globalStatus.textContent = "DIHENTIKAN";
         } else {
-            globalStatus.textContent = "SELESAI";
-            launchConfetti();
-            
+            globalStatus.textContent = "SELESAI"; launchConfetti();
             let linksHtml = "";
             if (resultLinks.length > 0) {
                 linksHtml += `<div class="result-btn-container">`;
@@ -305,8 +269,7 @@
             }
 
             Swal.fire({
-                icon: 'success',
-                title: '🎉 Selesai Semua! 🎉',
+                icon: 'success', title: '🎉 Selesai Semua! 🎉',
                 html: `
                     <div style="text-align:left; color:#ddd;">
                         <p>Total Item Disalin: <b>${grandTotalFiles}</b></p>
@@ -327,22 +290,17 @@
         const initRes = await sendRequest({ action: 'initialize', url: url, name: "" });
         if (initRes.status !== 'success') throw new Error(initRes.message);
 
-        const jobId = initRes.jobId;
-        const total = initRes.totalFiles;
+        const jobId = initRes.jobId; const total = initRes.totalFiles;
         const sourceName = initRes.sourceName || "Item";
-        const targetUrl = initRes.targetUrl;
-        const sourceType = initRes.type || 'folder'; // 'file' or 'folder'
+        let targetUrl = initRes.targetUrl; // Default folder URL
+        const sourceType = initRes.type || 'folder';
 
-        // Update Text Status agar Informatif
         const actionText = sourceType === 'file' ? 'Menyalin File' : 'Menyalin Folder';
         document.getElementById('progressText').textContent = `${actionText}: ${sourceName}`;
 
         if (total === 0) return { files: 0, sizeStr: "0 B", url: targetUrl, name: sourceName, type: sourceType };
 
-        let finalProcessed = 0;
-        let finalSizeStr = "0 B";
-        let isFinished = false;
-        let workers = [];
+        let finalProcessed = 0; let finalSizeStr = "0 B"; let isFinished = false; let workers = [];
         
         const workerTask = async () => {
             while (!isFinished && !isStopRequested) {
@@ -352,29 +310,26 @@
                     
                     const p = res.progress;
                     updateProgress(p.percent, `${actionText}: ${p.processed}/${p.total}`);
-                    finalProcessed = p.processed;
-                    finalSizeStr = p.currentSize;
+                    finalProcessed = p.processed; finalSizeStr = p.currentSize;
+
+                    // KUNCI: AMBIL URL FILE DARI PROCESSED LIST
+                    if (res.processedList && res.processedList.length > 0) {
+                        if (sourceType === 'file') {
+                            targetUrl = res.processedList[0].url; // Update URL dengan URL file asli
+                        }
+                    }
 
                     if (res.action === 'complete') isFinished = true;
-                } catch (e) {
-                    await new Promise(r => setTimeout(r, 2000));
-                }
+                } catch (e) { await new Promise(r => setTimeout(r, 2000)); }
             }
         };
 
         for (let k = 0; k < CONCURRENCY_LIMIT; k++) workers.push(workerTask());
         await Promise.all(workers);
 
-        return { 
-            files: finalProcessed, 
-            sizeStr: finalSizeStr, 
-            url: targetUrl, 
-            name: sourceName,
-            type: sourceType
-        };
+        return { files: finalProcessed, sizeStr: finalSizeStr, url: targetUrl, name: sourceName, type: sourceType };
     }
 
-    // --- UTILS ---
     function launchConfetti() {
         var duration = 3000; var end = Date.now() + duration;
         var interval = setInterval(function() {
@@ -385,8 +340,7 @@
     function parseBytesToNum(sizeStr) {
         if (!sizeStr) return 0;
         const units = { 'Bytes': 1, 'KB': 1024, 'MB': 1024**2, 'GB': 1024**3, 'TB': 1024**4 };
-        const parts = sizeStr.split(' ');
-        return parseFloat(parts[0]) * (units[parts[1]] || 1);
+        const parts = sizeStr.split(' '); return parseFloat(parts[0]) * (units[parts[1]] || 1);
     }
     function formatBytes(bytes) {
         if (bytes === 0) return '0 Bytes';
