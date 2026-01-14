@@ -7,7 +7,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/tsparticles@2.11.0/tsparticles.bundle.min.js"></script>
-    <!-- Tambahan: Library Confetti untuk efek kembang api -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     
     <style>
@@ -136,7 +135,6 @@
         <textarea id="folderUrls" placeholder="https://drive.google.com/drive/folders/AAAA...&#10;https://drive.google.com/drive/folders/BBBB..."></textarea>
     </div>
 
-    <!-- Toggle Background Mode -->
     <div class="toggle-container">
         <span class="toggle-label">Run in Background (Server-Side)</span>
         <label class="switch">
@@ -182,7 +180,6 @@
     const logArea = document.getElementById('logArea');
     const globalStatus = document.getElementById('globalStatus');
 
-    // --- STATE VARIABLES ---
     let isStopRequested = false;
 
     // --- PARTICLES INIT ---
@@ -206,103 +203,71 @@
         }
     });
 
-    // --- STOP BUTTON HANDLER ---
+    // --- HANDLERS ---
     stopBtn.addEventListener('click', async () => {
         isStopRequested = true;
         stopBtn.disabled = true;
         stopBtn.textContent = "Stopping...";
-        
         if (bgToggle.checked) {
             addLog("Mengirim sinyal stop ke server...", "info");
-            try {
-                const res = await sendRequest({ action: 'stop_background' });
-                addLog(res.message, "success");
-            } catch (e) {
-                addLog("Gagal stop server: " + e.message, "error");
-            }
+            try { const res = await sendRequest({ action: 'stop_background' }); addLog(res.message, "success"); } catch (e) { addLog("Gagal stop server: " + e.message, "error"); }
         } else {
             addLog("Menghentikan proses browser...", "info");
         }
     });
 
-    // --- START BUTTON HANDLER ---
     submitBtn.addEventListener('click', async () => {
         const rawText = folderUrlsInput.value;
         const urls = rawText.split('\n').map(u => u.trim()).filter(u => u.length > 0);
-
-        if (urls.length === 0) {
-            Swal.fire({ icon: 'warning', title: 'Kosong', text: 'Masukkan link folder!' });
-            return;
-        }
+        if (urls.length === 0) { Swal.fire({ icon: 'warning', title: 'Kosong', text: 'Masukkan link folder!' }); return; }
 
         isStopRequested = false;
         setUIState('running');
         clearLog();
 
         if (bgToggle.checked) {
-            // MODE BACKGROUND
             try {
-                addLog("Mengirim data ke server untuk Background Process...", "info");
+                addLog("Mengirim data ke server...", "info");
                 const res = await sendRequest({ action: 'start_background_multi', urls: urls });
-                
                 if (res.status === 'success') {
                     addLog("✅ " + res.message, "success");
                     globalStatus.textContent = "BERJALAN DI SERVER";
-                    launchConfetti(); // Efek kecil saat start
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Started!',
-                        text: 'Proses berjalan di server. Anda bisa menutup tab ini.',
-                        confirmButtonText: 'Oke'
-                    });
+                    launchConfetti();
+                    Swal.fire({ icon: 'success', title: 'Started!', text: 'Proses berjalan di server. Anda bisa menutup tab ini.', confirmButtonText: 'Oke' });
                 } else {
-                    addLog("❌ Gagal: " + res.message, "error");
-                    setUIState('stopped');
+                    addLog("❌ Gagal: " + res.message, "error"); setUIState('stopped');
                 }
-            } catch (e) {
-                addLog("❌ Error Koneksi: " + e.message, "error");
-                setUIState('stopped');
-            }
-
+            } catch (e) { addLog("❌ Error: " + e.message, "error"); setUIState('stopped'); }
         } else {
-            // MODE FOREGROUND
             await runForegroundQueue(urls);
         }
     });
 
-    // --- FOREGROUND LOGIC (Browser Orchestration) ---
     async function runForegroundQueue(urls) {
         let successCount = 0;
         let failCount = 0;
-        
-        // Accumulator untuk ringkasan akhir
         let grandTotalFiles = 0;
         let grandTotalBytes = 0;
         let resultLinks = [];
 
         for (let i = 0; i < urls.length; i++) {
             if (isStopRequested) break;
-
             const currentUrl = urls[i];
             globalStatus.textContent = `Memproses Folder ${i + 1} dari ${urls.length}`;
             updateProgress(0, "Inisialisasi...");
 
             try {
                 addLog(`▶ [${i+1}/${urls.length}] Start: ${shortUrl(currentUrl)}`, 'info');
-                
-                // Proses dan ambil statistik
                 const result = await processSingleFolder(currentUrl);
-                
                 successCount++;
                 addLog(`✅ Selesai: ${result.files} files.`, 'success');
-                
-                // Akumulasi data
                 grandTotalFiles += result.files;
                 grandTotalBytes += parseBytesToNum(result.sizeStr);
+                
+                // Pastikan result.url ada sebelum dimasukkan ke list
                 if (result.url) {
                     resultLinks.push({ name: result.name || `Folder ${i+1}`, url: result.url });
                 }
-
             } catch (error) {
                 failCount++;
                 addLog(`❌ Gagal: ${error.message}`, 'error');
@@ -312,15 +277,12 @@
         setUIState('stopped');
         
         if (isStopRequested) {
-            addLog("⛔ Proses dihentikan oleh pengguna.", "error");
-            globalStatus.textContent = "DIHENTIKAN";
+            addLog("⛔ Proses dihentikan.", "error"); globalStatus.textContent = "DIHENTIKAN";
         } else {
             globalStatus.textContent = "SELESAI";
+            launchConfetti();
             
-            // --- FINAL CELEBRATION & SUMMARY ---
-            launchConfetti(); // FIREWORKS EFFECT!
-            
-            // Generate HTML untuk link hasil
+            // Build Result Links HTML
             let linksHtml = "";
             if (resultLinks.length > 0) {
                 linksHtml += `<div class="result-btn-container">`;
@@ -328,6 +290,8 @@
                     linksHtml += `<a href="${link.url}" target="_blank" class="result-link-btn">📂 Buka: ${link.name}</a>`;
                 });
                 linksHtml += `</div>`;
+            } else if (successCount > 0) {
+                 linksHtml += `<p style="color:#aaa; font-size:0.8em; margin-top:10px;">(Link folder hasil tidak tersedia)</p>`;
             }
 
             Swal.fire({
@@ -342,10 +306,7 @@
                         ${linksHtml}
                     </div>
                 `,
-                background: '#111116',
-                color: '#fff',
-                confirmButtonText: 'Mantap!',
-                confirmButtonColor: '#ff00de'
+                background: '#111116', color: '#fff', confirmButtonText: 'Mantap!', confirmButtonColor: '#ff00de'
             });
         }
     }
@@ -360,13 +321,13 @@
         const total = initRes.totalFiles;
         const folderName = initRes.sourceName || "Folder";
         
-        // Simpan data akhir
+        // AMBIL URL DARI AWAL (HASIL PERBAIKAN)
+        const targetUrl = initRes.targetUrl;
+
+        if (total === 0) return { files: 0, sizeStr: "0 B", url: targetUrl, name: folderName };
+
         let finalProcessed = 0;
         let finalSizeStr = "0 B";
-        let finalUrl = null;
-
-        if (total === 0) return { files: 0, sizeStr: "0 B", url: null };
-
         let isFinished = false;
         let workers = [];
         
@@ -378,15 +339,10 @@
                     
                     const p = res.progress;
                     updateProgress(p.percent, `${p.processed}/${p.total} Files`);
-                    
-                    // Update stats
                     finalProcessed = p.processed;
-                    finalSizeStr = p.currentSize; // Ambil size yang sudah diproses
+                    finalSizeStr = p.currentSize;
 
-                    if (res.action === 'complete') {
-                        isFinished = true;
-                        if(res.details) finalUrl = res.details.folderUrl;
-                    }
+                    if (res.action === 'complete') isFinished = true;
                 } catch (e) {
                     await new Promise(r => setTimeout(r, 2000));
                 }
@@ -399,90 +355,51 @@
         return { 
             files: finalProcessed, 
             sizeStr: finalSizeStr, 
-            url: finalUrl,
+            url: targetUrl, // Gunakan URL yang sudah didapat di awal
             name: folderName
         };
     }
 
-    // --- UTILS & HELPERS ---
-    
-    // Fungsi Efek Kembang Api/Confetti
+    // --- UTILS ---
     function launchConfetti() {
-        var duration = 3 * 1000;
-        var animationEnd = Date.now() + duration;
-        var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
-
-        function randomInRange(min, max) { return Math.random() * (max - min) + min; }
-
+        var duration = 3000; var end = Date.now() + duration;
         var interval = setInterval(function() {
-            var timeLeft = animationEnd - Date.now();
-            if (timeLeft <= 0) return clearInterval(interval);
-
-            var particleCount = 50 * (timeLeft / duration);
-            confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
-            confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+            if (Date.now() > end) return clearInterval(interval);
+            confetti({ particleCount: 50, spread: 360, startVelocity: 30, origin: { x: Math.random(), y: Math.random() - 0.2 } });
         }, 250);
     }
-
-    // Helper Parse Byte String (e.g., "10.5 MB" -> number)
     function parseBytesToNum(sizeStr) {
         if (!sizeStr) return 0;
         const units = { 'Bytes': 1, 'KB': 1024, 'MB': 1024**2, 'GB': 1024**3, 'TB': 1024**4 };
         const parts = sizeStr.split(' ');
-        if (parts.length < 2) return 0;
-        const val = parseFloat(parts[0]);
-        const unit = parts[1];
-        return val * (units[unit] || 1);
+        return parseFloat(parts[0]) * (units[parts[1]] || 1);
     }
-
     function formatBytes(bytes) {
         if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        const i = Math.floor(Math.log(bytes) / Math.log(1024));
+        return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + ['Bytes', 'KB', 'MB', 'GB', 'TB'][i];
     }
-
     async function sendRequest(payload) {
-        const response = await fetch(SCRIPT_URL, {
-            method: 'POST', body: JSON.stringify(payload),
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        });
+        const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
         return await response.json();
     }
-
     function setUIState(state) {
         if (state === 'running') {
-            submitBtn.style.display = 'none';
-            stopBtn.style.display = 'block';
-            stopBtn.disabled = false;
-            stopBtn.textContent = "STOP 🛑";
-            folderUrlsInput.disabled = true;
-            bgToggle.disabled = true;
-            progressWrapper.style.display = 'block';
-            logArea.style.display = 'block';
+            submitBtn.style.display = 'none'; stopBtn.style.display = 'block'; stopBtn.disabled = false; stopBtn.textContent = "STOP 🛑";
+            folderUrlsInput.disabled = true; bgToggle.disabled = true; progressWrapper.style.display = 'block'; logArea.style.display = 'block';
         } else {
-            submitBtn.style.display = 'block';
-            stopBtn.style.display = 'none';
-            folderUrlsInput.disabled = false;
-            bgToggle.disabled = false;
+            submitBtn.style.display = 'block'; stopBtn.style.display = 'none'; folderUrlsInput.disabled = false; bgToggle.disabled = false;
         }
     }
-
     function updateProgress(percent, text) {
         progressBar.style.width = percent + "%";
         document.getElementById('progressPercent').textContent = percent + "%";
         document.getElementById('progressText').textContent = text;
     }
-
     function addLog(msg, type) {
-        const div = document.createElement('div');
-        div.className = 'log-item log-' + type;
-        div.textContent = msg;
-        logArea.appendChild(div);
-        logArea.scrollTop = logArea.scrollHeight;
+        const div = document.createElement('div'); div.className = 'log-item log-' + type; div.textContent = msg;
+        logArea.appendChild(div); logArea.scrollTop = logArea.scrollHeight;
     }
-
     function clearLog() { logArea.innerHTML = ''; }
     function shortUrl(url) { return url.length > 40 ? url.substring(0, 35) + "..." : url; }
 </script>
