@@ -18,430 +18,314 @@
         body {
             font-family: 'Poppins', sans-serif;
             background: #0f0c29; background: linear-gradient(to right, #24243e, #302b63, #0f0c29);
-            display: flex; justify-content: center; align-items: center; min-height: 100vh;
-            margin: 0; padding: 20px; color: var(--text-color); overflow-x: hidden; position: relative;
+            color: var(--text-color); margin: 0; min-height: 100vh; overflow-x: hidden;
+            display: flex; justify-content: center; align-items: center;
         }
-        #tsparticles { position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 0; }
-        
+        #tsparticles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
         .container {
-            position: relative; z-index: 1; background: var(--glass-bg);
-            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-            padding: 2rem; border-radius: 20px; border: 1px solid var(--glass-border);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5); width: 100%; max-width: 550px;
-            animation: fadeIn 0.8s ease-out;
+            width: 90%; max-width: 600px;
+            background: var(--glass-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border); border-radius: 20px;
+            padding: 30px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            animation: fadeIn 1s ease-out;
         }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-        h1 {
-            font-size: 1.8rem; margin-bottom: 0.5rem; text-align: center;
-            background: linear-gradient(to right, #00d2ff, #ff00de, #f4b400); 
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            font-weight: 700; text-shadow: 0 0 20px rgba(0, 210, 255, 0.3);
-        }
-        p.subtitle { text-align: center; color: rgba(255, 255, 255, 0.8); font-size: 0.9rem; margin-bottom: 1.5rem; }
-
-        .form-group { margin-bottom: 1.2rem; }
-        label { display: block; margin-bottom: 0.6rem; color: #d1d8e0; font-size: 0.85rem; font-weight: 500; }
+        h1 { text-align: center; margin-bottom: 20px; font-weight: 600; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         
-        .header-row {
-            display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;
+        .input-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: #aaa; }
+        textarea, input[type="text"] {
+            width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--glass-border);
+            background: var(--input-bg); color: #fff; font-family: 'Poppins', sans-serif; resize: vertical; outline: none; transition: 0.3s;
+            box-sizing: border-box; /* Fix padding issue */
         }
-        .header-row label { margin-bottom: 0; }
-
-        .btn-clear {
-            width: auto !important; padding: 4px 10px !important; font-size: 0.75rem !important;
-            background: rgba(255, 71, 87, 0.2) !important;
-            border: 1px solid rgba(255, 71, 87, 0.5) !important;
-            color: #ff4757 !important; margin: 0 !important;
-            border-radius: 6px !important; letter-spacing: 0.5px !important;
-            animation: none !important;
-        }
-        .btn-clear:hover {
-            background: rgba(255, 71, 87, 0.4) !important; color: white !important;
-            transform: none !important; box-shadow: none !important;
-        }
-
-        textarea {
-            width: 100%; padding: 12px 15px; background: var(--input-bg);
-            border: 1px solid var(--glass-border); border-radius: 10px;
-            font-size: 0.9rem; color: white; box-sizing: border-box;
-            font-family: 'Poppins', sans-serif; resize: vertical; min-height: 120px;
-        }
-        textarea:focus { outline: none; border-color: var(--primary); background: rgba(255, 255, 255, 0.1); }
-
-        .toggle-container {
-            display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 10px;
-        }
-        .toggle-label { font-size: 0.9rem; font-weight: 600; color: #00d2ff; }
-        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #ccc; transition: .4s; border-radius: 34px;
-        }
-        .slider:before {
-            position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px;
-            background-color: white; transition: .4s; border-radius: 50%;
-        }
-        input:checked + .slider { background-color: #2ed573; }
-        input:checked + .slider:before { transform: translateX(26px); }
-
-        .btn-group { display: flex; gap: 10px; }
+        textarea:focus, input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 10px rgba(0, 210, 255, 0.3); }
+        
+        .btn-container { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;}
         button {
-            width: 100%; border: none; padding: 14px; border-radius: 10px;
-            font-size: 1rem; font-weight: 600; cursor: pointer;
-            transition: transform 0.2s; text-transform: uppercase; letter-spacing: 1px;
-            color: white;
+            flex: 1; padding: 12px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; transition: 0.3s;
+            background: linear-gradient(45deg, var(--primary), var(--secondary)); color: #fff; min-width: 120px;
         }
-        #submitBtn {
-            background: linear-gradient(45deg, #00d2ff, #3a7bd5, #ff00de);
-            background-size: 200% 200%; animation: gradientAnim 3s ease infinite;
-        }
-        #stopBtn { background: #ff4757; display: none; }
-        @keyframes gradientAnim { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-        button:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
-        button:disabled { background: #444; color: #aaa; cursor: not-allowed; animation: none; transform: none; box-shadow: none;}
-
-        .progress-wrapper { margin-top: 20px; display: none; }
-        .global-status { 
-            text-align: center; margin-bottom: 5px; font-weight: 600; color: #f4b400; 
-            border: 1px solid rgba(244, 180, 0, 0.3); padding: 5px; border-radius: 5px; background: rgba(0,0,0,0.2);
-        }
-        /* TIMER STYLE */
-        .timer-display {
-            text-align: center;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 1.3rem;
-            color: #fff;
-            margin-bottom: 10px;
-            font-weight: bold;
-            text-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
-            letter-spacing: 2px;
-        }
-
-        .progress-container { width: 100%; height: 8px; background-color: rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden; margin-top: 5px;}
-        .progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #f4b400, #ff00de, #00d2ff); border-radius: 10px; transition: width 0.4s ease; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; filter: grayscale(100%); }
+        button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 210, 255, 0.4); }
+        button.btn-secondary { background: rgba(255, 255, 255, 0.1); border: 1px solid var(--glass-border); }
+        button.btn-danger { background: linear-gradient(45deg, #ff416c, #ff4b2b); }
+        button.btn-info { background: linear-gradient(45deg, #2193b0, #6dd5ed); }
+        
+        .progress-container { margin: 20px 0; display: none; }
+        .progress-bar-bg { width: 100%; height: 10px; background: rgba(255, 255, 255, 0.1); border-radius: 5px; overflow: hidden; }
+        .progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), var(--secondary)); transition: width 0.3s ease; }
+        .status-text { margin-top: 5px; font-size: 0.85rem; text-align: center; color: #ddd; }
+        
         .log-area {
-            margin-top: 15px; max-height: 150px; overflow-y: auto; 
-            background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px;
-            font-size: 0.75rem; font-family: monospace; display: none;
-            border: 1px solid rgba(255,255,255,0.05);
+            height: 150px; overflow-y: auto; background: rgba(0, 0, 0, 0.5); border-radius: 10px; padding: 10px;
+            font-family: 'Consolas', monospace; font-size: 0.8rem; border: 1px solid var(--glass-border);
         }
-        .log-item { margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .log-success { color: #00d2ff; } .log-error { color: #ff4757; } .log-skip { color: #ffa502; } .log-info { color: #ddd; }
-
-        .result-btn-container {
-            display: flex; flex-direction: column; gap: 8px; margin-top: 15px; max-height: 150px; overflow-y: auto;
-        }
-        .result-link-btn {
-            display: block; padding: 10px; background: rgba(0, 210, 255, 0.15); 
-            border: 1px solid rgba(0, 210, 255, 0.5); color: #00d2ff; text-decoration: none; 
-            border-radius: 6px; font-size: 0.9em; transition: 0.2s; text-align: center;
-        }
-        .result-link-btn:hover { background: rgba(0, 210, 255, 0.3); color: white; }
-
-        ::-webkit-scrollbar { width: 6px; }
+        .log-item { margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .log-success { color: #00ff88; } .log-error { color: #ff4d4d; } .log-info { color: #00d2ff; }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
+
+        .timer { text-align: center; font-size: 1.2rem; margin-bottom: 10px; font-variant-numeric: tabular-nums; }
     </style>
 </head>
 <body>
-
-<div id="tsparticles"></div>
-
-<div class="container">
-    <h1>G-Drive Multi Cloner</h1>
-    <p class="subtitle">Bulk Folder & File Transfer</p>
+    <div id="tsparticles"></div>
     
-    <div class="form-group">
-        <div class="header-row">
-            <label for="folderUrls">Daftar Link Sumber (File atau Folder)</label>
-            <button id="clearInputBtn" class="btn-clear">Clear</button>
-        </div>
-        <textarea id="folderUrls" placeholder="https://drive.google.com/drive/folders/AAAA...&#10;https://drive.google.com/file/d/BBBB..."></textarea>
-    </div>
-
-    <div class="toggle-container">
-        <span class="toggle-label">Run in Background (Server-Side)</span>
-        <label class="switch">
-            <input type="checkbox" id="bgToggle">
-            <span class="slider"></span>
-        </label>
-    </div>
-    <div style="font-size: 0.75rem; color: #aaa; margin-top: -10px; margin-bottom: 15px; text-align: right;">
-        *Jika ON: Proses berjalan meski tab ditutup.
-    </div>
-
-    <div class="btn-group">
-        <button id="submitBtn">Mulai Proses</button>
-        <button id="stopBtn">STOP 🛑</button>
-    </div>
-
-    <div class="progress-wrapper" id="progressWrapper">
-        <div class="global-status" id="globalStatus">Menunggu...</div>
+    <div class="container">
+        <h1>G-Drive Cloner Pro</h1>
         
-        <!-- Timer Display -->
-        <div class="timer-display" id="timerDisplay">00:00:00</div>
+        <div class="input-group">
+            <label>Masukkan URL Folder/File (Satu per baris)</label>
+            <textarea id="folderUrls" rows="4" placeholder="https://drive.google.com/drive/folders/...\nhttps://drive.google.com/file/d/..."></textarea>
+        </div>
 
-        <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#b8c6db;">
-            <span id="progressText">Progress...</span>
-            <span id="progressPercent">0%</span>
+        <div class="timer" id="timer">00:00:00</div>
+
+        <div class="btn-container">
+            <button id="btnStart" onclick="startCloning()">🚀 Mulai Cloning</button>
+            <button id="btnStop" class="btn-danger" onclick="stopCloning()" disabled>⛔ Stop</button>
+            <button id="btnBg" class="btn-secondary" onclick="toggleBackground()" disabled>☁️ Background Mode</button>
+            <button id="btnQuota" class="btn-info" onclick="checkQuota()">📊 Cek Kuota</button>
         </div>
-        <div class="progress-container">
-            <div class="progress-bar" id="progressBar"></div>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar-bg">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="status-text">
+                <span id="progressPercent">0%</span> - <span id="progressText">Menunggu...</span>
+            </div>
         </div>
-        <div class="log-area" id="logArea"></div>
+
+        <div class="input-group">
+            <label>Log Aktivitas <span style="float:right; cursor:pointer; color:var(--secondary)" onclick="clearLog()">[Hapus Log]</span></label>
+            <div class="log-area" id="logArea"></div>
+        </div>
     </div>
-</div>
 
-<script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwzMhTT8zwLTV26UtM0T2nd8tsp9U8xjoFNGHp1h-xJ30ZZwjVORtEBiqXe8laV7MhDcg/exec"; 
-    const CONCURRENCY_LIMIT = 3; 
+    <script>
+        // GANTI URL INI DENGAN URL DEPLOYMENT WEB APP ANDA
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyJ9o2a7o_lT5u1c7QJzP4fT8kG9qB7yX3z5wE1rQ/exec"; 
 
-    const submitBtn = document.getElementById('submitBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const bgToggle = document.getElementById('bgToggle');
-    const folderUrlsInput = document.getElementById('folderUrls');
-    const clearInputBtn = document.getElementById('clearInputBtn');
-    const progressWrapper = document.getElementById('progressWrapper');
-    const progressBar = document.getElementById('progressBar');
-    const logArea = document.getElementById('logArea');
-    const globalStatus = document.getElementById('globalStatus');
-    const timerDisplay = document.getElementById('timerDisplay');
+        const folderUrlsInput = document.getElementById('folderUrls');
+        const startBtn = document.getElementById('btnStart');
+        const stopBtn = document.getElementById('btnStop');
+        const bgToggle = document.getElementById('btnBg');
+        const quotaBtn = document.getElementById('btnQuota');
+        const progressBar = document.getElementById('progressBar');
+        const logArea = document.getElementById('logArea');
+        const timerDisplay = document.getElementById('timer');
+        
+        let isRunning = false;
+        let timerInterval;
 
-    let isStopRequested = false;
-    let timerInterval;
-
-    // --- CLEAR BUTTON HANDLER ---
-    clearInputBtn.addEventListener('click', () => {
-        folderUrlsInput.value = '';
-        folderUrlsInput.focus();
-    });
-
-    tsParticles.load("tsparticles", {
-        fpsLimit: 60,
-        particles: {
-            number: { value: 20, density: { enable: true, area: 800 } },
-            shape: { type: ["char", "circle"], character: [ { value: ["📂", "💾", "🚀", "✨", "📄"], font: "Verdana", weight: "400" } ] },
-            color: { value: ["#4285F4", "#DB4437", "#F4B400", "#0F9D58", "#ffffff"] },
-            opacity: { value: 0.4, random: true }, size: { value: { min: 10, max: 20 }, random: true },
-            move: { enable: true, speed: 1, direction: "none", random: true, outModes: { default: "out" } }
-        },
-        emitters: {
-            rate: { delay: 3, quantity: 1 }, position: { x: 50, y: 50 },
-            particles: {
-                shape: { type: "char", character: { value: ["✉️", "📦"], font: "Verdana" } },
-                size: { value: { min: 60, max: 90 } }, opacity: { value: 1 },
-                move: { enable: true, speed: 1, outModes: { default: "destroy" } },
-                links: { enable: false }
-            }
-        }
-    });
-
-    stopBtn.addEventListener('click', async () => {
-        isStopRequested = true; stopBtn.disabled = true; stopBtn.textContent = "Stopping...";
-        if (bgToggle.checked) {
-            addLog("Mengirim sinyal stop ke server...", "info");
-            try { const res = await sendRequest({ action: 'stop_background' }); addLog(res.message, "success"); } catch (e) { addLog("Gagal stop: " + e.message, "error"); }
-        } else addLog("Menghentikan proses browser...", "info");
-        stopTimer();
-    });
-
-    submitBtn.addEventListener('click', async () => {
-        const rawText = folderUrlsInput.value;
-        const urls = rawText.split('\n').map(u => u.trim()).filter(u => u.length > 0);
-        if (urls.length === 0) { Swal.fire({ icon: 'warning', title: 'Kosong', text: 'Masukkan link file/folder!' }); return; }
-
-        isStopRequested = false; setUIState('running'); clearLog();
-        startTimer(); // Mulai Timer
-
-        if (bgToggle.checked) {
+        // --- QUOTA FUNCTION (BARU) ---
+        async function checkQuota() {
+            quotaBtn.disabled = true;
+            quotaBtn.innerHTML = "⏳ Loading...";
+            
             try {
-                addLog("Mengirim data ke server...", "info");
-                const res = await sendRequest({ action: 'start_background_multi', urls: urls });
-                if (res.status === 'success') {
-                    addLog("✅ " + res.message, "success"); globalStatus.textContent = "BERJALAN DI SERVER"; launchConfetti();
-                    Swal.fire({ icon: 'success', title: 'Started!', text: 'Proses berjalan di server.', confirmButtonText: 'Oke' });
-                } else { addLog("❌ Gagal: " + res.message, "error"); setUIState('stopped'); stopTimer(); }
-            } catch (e) { addLog("❌ Error: " + e.message, "error"); setUIState('stopped'); stopTimer(); }
-        } else {
-            await runForegroundQueue(urls);
-        }
-    });
-
-    async function runForegroundQueue(urls) {
-        let successCount = 0; let failCount = 0; let grandTotalFiles = 0; let grandTotalBytes = 0; let resultLinks = [];
-
-        for (let i = 0; i < urls.length; i++) {
-            if (isStopRequested) break;
-            const currentUrl = urls[i];
-            globalStatus.textContent = `Memproses Link ${i + 1} dari ${urls.length}`;
-            updateProgress(0, "Inisialisasi...");
-
-            try {
-                addLog(`▶ [${i+1}/${urls.length}] Connecting: ${shortUrl(currentUrl)}`, 'info');
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'get_quota' })
+                });
+                const result = await response.json();
                 
-                const result = await processSingleFolder(currentUrl);
-                successCount++;
-                const itemType = result.type === 'file' ? 'File' : 'Folder';
-                addLog(`✅ Selesai: ${itemType} "${result.name}" (${result.files} items).`, 'success');
-                
-                grandTotalFiles += result.files; grandTotalBytes += parseBytesToNum(result.sizeStr);
-                
-                if (result.url) {
-                    const icon = result.type === 'file' ? '📄' : '📂';
-                    resultLinks.push({ name: `${icon} ${result.name}`, url: result.url });
+                if (result.status === 'success') {
+                    Swal.fire({
+                        title: 'Info Kuota',
+                        html: `
+                            <div style="text-align:left; font-size:0.9rem">
+                                <p><strong>Akun:</strong> ${result.data.user}</p>
+                                <p><strong>Drive Terpakai:</strong> ${result.data.storageUsed}</p>
+                                <p><strong>Sisa Limit Harian:</strong> ${result.data.dailyQuota}</p>
+                                <hr>
+                                <small style="color:#aaa">*Limit harian mengacu pada kuota email/trigger tersisa, bukan jumlah file yang bisa dicopy.</small>
+                            </div>
+                        `,
+                        icon: 'info',
+                        background: '#24243e',
+                        color: '#fff'
+                    });
+                } else {
+                    addLog('Gagal cek kuota: ' + result.message, 'error');
                 }
             } catch (error) {
-                failCount++; addLog(`❌ Gagal: ${error.message}`, 'error');
+                addLog('Error koneksi cek kuota', 'error');
+                console.error(error);
+            } finally {
+                quotaBtn.disabled = false;
+                quotaBtn.innerHTML = "📊 Cek Kuota";
             }
         }
 
-        setUIState('stopped');
-        stopTimer(); // Hentikan Timer saat selesai
-        
-        if (isStopRequested) {
-            addLog("⛔ Proses dihentikan.", "error"); globalStatus.textContent = "DIHENTIKAN";
-        } else {
-            globalStatus.textContent = "SELESAI"; launchConfetti();
-            let linksHtml = "";
-            if (resultLinks.length > 0) {
-                linksHtml += `<div class="result-btn-container">`;
-                resultLinks.forEach(link => {
-                    linksHtml += `<a href="${link.url}" target="_blank" class="result-link-btn">Buka: ${link.name}</a>`;
+        // --- MAIN FUNCTIONS ---
+        async function startCloning() {
+            const urls = folderUrlsInput.value.trim().split('\n').filter(u => u.trim() !== '');
+            if (urls.length === 0) {
+                Swal.fire({ icon: 'warning', title: 'Oops...', text: 'Masukkan setidaknya satu URL!', background: '#24243e', color: '#fff' });
+                return;
+            }
+
+            setRunningState(true);
+            addLog('Memulai proses cloning...', 'info');
+            startTimer();
+
+            try {
+                // Menggunakan mode background job (lebih stabil untuk banyak file)
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'start_background_multi', urls: urls })
                 });
-                linksHtml += `</div>`;
-            } else if (successCount > 0) {
-                 linksHtml += `<p style="color:#aaa; font-size:0.8em; margin-top:10px;">(Link hasil tidak tersedia)</p>`;
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    addLog('Job terdaftar ID: ' + result.jobId, 'success');
+                    monitorJob();
+                } else {
+                    addLog('Gagal memulai: ' + result.message, 'error');
+                    setRunningState(false);
+                }
+            } catch (error) {
+                addLog('Error koneksi: ' + error.message, 'error');
+                setRunningState(false);
             }
-
-            Swal.fire({
-                icon: 'success', title: '🎉 Selesai Semua! 🎉',
-                html: `
-                    <div style="text-align:left; color:#ddd;">
-                        <p>Waktu: <b>${timerDisplay.textContent}</b></p>
-                        <p>Total Item Disalin: <b>${grandTotalFiles}</b></p>
-                        <p>Total Ukuran: <b>${formatBytes(grandTotalBytes)}</b></p>
-                        <hr style="border-color:rgba(255,255,255,0.1); margin:10px 0;">
-                        <p style="font-size:0.9em">Berhasil: ${successCount} | Gagal: ${failCount}</p>
-                        ${linksHtml}
-                    </div>
-                `,
-                background: '#111116', color: '#fff', confirmButtonText: 'Mantap!', confirmButtonColor: '#ff00de'
-            });
         }
-    }
 
-    async function processSingleFolder(url) {
-        if (isStopRequested) return { files: 0, sizeStr: "0 B", url: null, type: 'unknown' };
-        
-        const initRes = await sendRequest({ action: 'initialize', url: url, name: "" });
-        if (initRes.status !== 'success') throw new Error(initRes.message);
-
-        const jobId = initRes.jobId; const total = initRes.totalFiles;
-        const sourceName = initRes.sourceName || "Item";
-        let targetUrl = initRes.targetUrl; // Default folder URL
-        const sourceType = initRes.type || 'folder';
-
-        const actionText = sourceType === 'file' ? 'Menyalin File' : 'Menyalin Folder';
-        document.getElementById('progressText').textContent = `${actionText}: ${sourceName}`;
-
-        if (total === 0) return { files: 0, sizeStr: "0 B", url: targetUrl, name: sourceName, type: sourceType };
-
-        let finalProcessed = 0; let finalSizeStr = "0 B"; let isFinished = false; let workers = [];
-        
-        const workerTask = async () => {
-            while (!isFinished && !isStopRequested) {
-                try {
-                    const res = await sendRequest({ action: 'process_batch', jobId: jobId });
-                    if (res.status !== 'success') throw new Error(res.message);
+        async function monitorJob() {
+            if (!isRunning) return;
+            
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'check_background_status' })
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success' && result.job) {
+                    const job = result.job;
                     
-                    const p = res.progress;
-                    updateProgress(p.percent, `${actionText}: ${p.processed}/${p.total}`);
-                    finalProcessed = p.processed; finalSizeStr = p.currentSize;
-
-                    if (res.processedList && res.processedList.length > 0) {
-                        if (sourceType === 'file') {
-                            targetUrl = res.processedList[0].url; 
-                        }
+                    // Update Logs
+                    if (job.logs && job.logs.length > 0) {
+                        // Hanya tampilkan log terakhir agar tidak spam
+                        const lastLog = job.logs[job.logs.length - 1];
+                        updateProgress(Math.floor((job.currentIndex / job.urls.length) * 100), lastLog);
+                        
+                        // Tampilkan semua log baru (logic sederhana)
+                        // Idealnya kita track index log terakhir di client side
+                        // Disini kita clear dan re-render simple atau append yg beda
+                        // Agar simple, kita append log status saja
                     }
 
-                    if (res.action === 'complete') isFinished = true;
-                } catch (e) { await new Promise(r => setTimeout(r, 2000)); }
+                    if (job.status === 'completed') {
+                        finishCloning();
+                    } else {
+                        setTimeout(monitorJob, 5000); // Poll setiap 5 detik
+                    }
+                } else {
+                    if (result.status === 'idle') {
+                        addLog('Tidak ada job aktif.', 'info');
+                        setRunningState(false);
+                    } else {
+                        setTimeout(monitorJob, 5000);
+                    }
+                }
+            } catch (e) {
+                console.log("Polling error", e);
+                setTimeout(monitorJob, 10000); // Retry lebih lama
             }
-        };
-
-        for (let k = 0; k < CONCURRENCY_LIMIT; k++) workers.push(workerTask());
-        await Promise.all(workers);
-
-        return { files: finalProcessed, sizeStr: finalSizeStr, url: targetUrl, name: sourceName, type: sourceType };
-    }
-
-    function launchConfetti() {
-        var duration = 3000; var end = Date.now() + duration;
-        var interval = setInterval(function() {
-            if (Date.now() > end) return clearInterval(interval);
-            confetti({ particleCount: 50, spread: 360, startVelocity: 30, origin: { x: Math.random(), y: Math.random() - 0.2 } });
-        }, 250);
-    }
-    function parseBytesToNum(sizeStr) {
-        if (!sizeStr) return 0;
-        const units = { 'Bytes': 1, 'KB': 1024, 'MB': 1024**2, 'GB': 1024**3, 'TB': 1024**4 };
-        const parts = sizeStr.split(' '); return parseFloat(parts[0]) * (units[parts[1]] || 1);
-    }
-    function formatBytes(bytes) {
-        if (bytes === 0) return '0 Bytes';
-        const i = Math.floor(Math.log(bytes) / Math.log(1024));
-        return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + ['Bytes', 'KB', 'MB', 'GB', 'TB'][i];
-    }
-    async function sendRequest(payload) {
-        const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
-        return await response.json();
-    }
-    function setUIState(state) {
-        if (state === 'running') {
-            submitBtn.style.display = 'none'; stopBtn.style.display = 'block'; stopBtn.disabled = false; stopBtn.textContent = "STOP 🛑";
-            folderUrlsInput.disabled = true; bgToggle.disabled = true; progressWrapper.style.display = 'block'; logArea.style.display = 'block';
-        } else {
-            submitBtn.style.display = 'block'; stopBtn.style.display = 'none'; folderUrlsInput.disabled = false; bgToggle.disabled = false;
         }
-    }
-    function updateProgress(percent, text) {
-        progressBar.style.width = percent + "%";
-        document.getElementById('progressPercent').textContent = percent + "%";
-        document.getElementById('progressText').textContent = text;
-    }
-    function addLog(msg, type) {
-        const div = document.createElement('div'); div.className = 'log-item log-' + type; div.textContent = msg;
-        logArea.appendChild(div); logArea.scrollTop = logArea.scrollHeight;
-    }
-    function clearLog() { logArea.innerHTML = ''; }
-    function shortUrl(url) { return url.length > 40 ? url.substring(0, 35) + "..." : url; }
 
-    // --- TIMER FUNCTIONS ---
-    function startTimer() {
-        const startTime = Date.now();
-        timerDisplay.textContent = "00:00:00";
-        clearInterval(timerInterval);
-        timerInterval = setInterval(() => {
-            const elapsedTime = Date.now() - startTime;
-            const hours = Math.floor(elapsedTime / 3600000);
-            const minutes = Math.floor((elapsedTime % 3600000) / 60000);
-            const seconds = Math.floor((elapsedTime % 60000) / 1000);
-            timerDisplay.textContent = 
-                `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-        }, 1000);
-    }
+        async function stopCloning() {
+            if (!confirm('Yakin ingin menghentikan proses?')) return;
+            
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'stop_background' })
+                });
+                addLog('Mengirim perintah stop...', 'info');
+                setRunningState(false);
+                stopTimer();
+            } catch (e) {
+                addLog('Gagal stop: ' + e.message, 'error');
+            }
+        }
 
-    function stopTimer() {
-        clearInterval(timerInterval);
-    }
+        function finishCloning() {
+            setRunningState(false);
+            stopTimer();
+            updateProgress(100, "Selesai!");
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            Swal.fire({ icon: 'success', title: 'Selesai!', text: 'Semua proses cloning telah selesai.', background: '#24243e', color: '#fff' });
+        }
 
-    function pad(num) {
-        return num.toString().padStart(2, '0');
-    }
-</script>
+        function setRunningState(active) {
+            isRunning = active;
+            startBtn.disabled = active;
+            stopBtn.disabled = !active;
+            folderUrlsInput.disabled = active;
+            bgToggle.disabled = active;
+            document.getElementById('progressContainer').style.display = active ? 'block' : 'none';
+        }
 
+        function toggleBackground() {
+            // Placeholder func
+            alert("Mode background otomatis aktif saat Start ditekan.");
+        }
+
+        function updateProgress(percent, text) {
+            progressBar.style.width = percent + "%";
+            document.getElementById('progressPercent').textContent = percent + "%";
+            document.getElementById('progressText').textContent = shortUrl(text);
+        }
+
+        function addLog(msg, type) {
+            const div = document.createElement('div'); div.className = 'log-item log-' + type; div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logArea.appendChild(div); logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        function clearLog() { logArea.innerHTML = ''; }
+        function shortUrl(url) { return url.length > 40 ? url.substring(0, 35) + "..." : url; }
+
+        // --- TIMER FUNCTIONS ---
+        function startTimer() {
+            const startTime = Date.now();
+            timerDisplay.textContent = "00:00:00";
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const elapsedTime = Date.now() - startTime;
+                const hours = Math.floor(elapsedTime / 3600000);
+                const minutes = Math.floor((elapsedTime % 3600000) / 60000);
+                const seconds = Math.floor((elapsedTime % 60000) / 1000);
+                timerDisplay.textContent = 
+                    `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+            }, 1000);
+        }
+
+        function stopTimer() { clearInterval(timerInterval); }
+        function pad(n) { return n < 10 ? "0" + n : n; }
+
+        // --- PARTICLES ---
+        tsParticles.load("tsparticles", {
+            fpsLimit: 60,
+            particles: {
+                color: { value: "#ffffff" },
+                links: { color: "#ffffff", distance: 150, enable: true, opacity: 0.1, width: 1 },
+                move: { enable: true, speed: 1, direction: "none", random: false, straight: false, outModes: { default: "bounce" } },
+                number: { density: { enable: true, area: 800 }, value: 40 },
+                opacity: { value: 0.2 },
+                shape: { type: "circle" },
+                size: { value: { min: 1, max: 3 } },
+            },
+            detectRetina: true,
+        });
+    </script>
 </body>
 </html>
