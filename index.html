@@ -110,7 +110,7 @@
 
     <script>
         // GANTI URL INI DENGAN URL DEPLOYMENT WEB APP ANDA
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwzMhTT8zwLTV26UtM0T2nd8tsp9U8xjoFNGHp1h-xJ30ZZwjVORtEBiqXe8laV7MhDcg/exec"; 
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyJ9o2a7o_lT5u1c7QJzP4fT8kG9qB7yX3z5wE1rQ/exec"; 
 
         const folderUrlsInput = document.getElementById('folderUrls');
         const startBtn = document.getElementById('btnStart');
@@ -124,7 +124,7 @@
         let isRunning = false;
         let timerInterval;
 
-        // --- QUOTA FUNCTION (BARU) ---
+        // --- QUOTA FUNCTION (UPDATED) ---
         async function checkQuota() {
             quotaBtn.disabled = true;
             quotaBtn.innerHTML = "⏳ Loading...";
@@ -137,20 +137,40 @@
                 const result = await response.json();
                 
                 if (result.status === 'success') {
+                    const r = result.data;
+                    const runtime = r.runtime;
+                    
+                    // Warna progress bar waktu berdasarkan usage
+                    let color = '#00ff88';
+                    if (runtime.percentUsed > 50) color = '#f1c40f';
+                    if (runtime.percentUsed > 80) color = '#ff4d4d';
+
                     Swal.fire({
-                        title: 'Info Kuota',
+                        title: 'Info Kuota & Runtime',
                         html: `
                             <div style="text-align:left; font-size:0.9rem">
-                                <p><strong>Akun:</strong> ${result.data.user}</p>
-                                <p><strong>Drive Terpakai:</strong> ${result.data.storageUsed}</p>
-                                <p><strong>Sisa Limit Harian:</strong> ${result.data.dailyQuota}</p>
-                                <hr>
-                                <small style="color:#aaa">*Limit harian mengacu pada kuota email/trigger tersisa, bukan jumlah file yang bisa dicopy.</small>
+                                <p><strong>Akun:</strong> ${r.user}</p>
+                                <p><strong>Drive Terpakai:</strong> ${r.storageUsed}</p>
+                                <p><strong>Email Trigger Quota:</strong> ${r.dailyQuota}</p>
+                                <hr style="border-color:rgba(255,255,255,0.1)">
+                                <p style="margin-bottom:5px"><strong>Estimasi Waktu Running Hari Ini:</strong></p>
+                                <div style="background:rgba(255,255,255,0.1); height:15px; border-radius:10px; overflow:hidden; margin-bottom:5px;">
+                                    <div style="width:${runtime.percentUsed}%; height:100%; background:${color}; transition: width 0.5s;"></div>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#ccc;">
+                                    <span>Terpakai: ${runtime.usedStr}</span>
+                                    <span>Sisa: ${runtime.remainingStr}</span>
+                                </div>
+                                <p style="font-size:0.75rem; color:#888; margin-top:5px; font-style:italic;">
+                                    *Limit GAS gratis: ~90 menit/hari. Workspace: ~6 jam/hari.<br>
+                                    *Angka ini adalah estimasi tracking script ini.
+                                </p>
                             </div>
                         `,
                         icon: 'info',
                         background: '#24243e',
-                        color: '#fff'
+                        color: '#fff',
+                        confirmButtonColor: '#00d2ff'
                     });
                 } else {
                     addLog('Gagal cek kuota: ' + result.message, 'error');
@@ -213,14 +233,8 @@
                     
                     // Update Logs
                     if (job.logs && job.logs.length > 0) {
-                        // Hanya tampilkan log terakhir agar tidak spam
                         const lastLog = job.logs[job.logs.length - 1];
                         updateProgress(Math.floor((job.currentIndex / job.urls.length) * 100), lastLog);
-                        
-                        // Tampilkan semua log baru (logic sederhana)
-                        // Idealnya kita track index log terakhir di client side
-                        // Disini kita clear dan re-render simple atau append yg beda
-                        // Agar simple, kita append log status saja
                     }
 
                     if (job.status === 'completed') {
